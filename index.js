@@ -77,12 +77,24 @@ app.get("/groups/:userId", async (req, res) => {
     }
 });
 
-// Game visits for a specific universe
-app.get("/visits/:universeId", async (req, res) => {
+// Get total visits across all games a user has created
+app.get("/gamevisits/:userId", async (req, res) => {
     try {
-        const data = await roblox(`games.roblox.com/v1/games?universeIds=${req.params.universeId}`);
-        const visits = data.data?.[0]?.visits || 0;
-        res.json({ visits });
+        let totalVisits = 0;
+        let cursor = "";
+
+        do {
+            const url = `games.roblox.com/v2/users/${req.params.userId}/games?sortOrder=Asc&limit=50${cursor ? "&cursor=" + cursor : ""}`;
+            const data = await roblox(url);
+
+            for (const game of data.data || []) {
+                totalVisits += game.placeVisits || 0;
+            }
+
+            cursor = data.nextPageCursor || "";
+        } while (cursor);
+
+        res.json({ visits: totalVisits });
     } catch (e) {
         res.json({ visits: 0, error: e.message });
     }
