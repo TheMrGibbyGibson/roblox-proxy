@@ -139,14 +139,9 @@ app.get("/botcheck/:userId", async (req, res) => {
             robloxWithRetry(`users.roblox.com/v1/users/${req.params.userId}`)
         ]);
 
-        // If any core request failed, bail out early
-        if (!followersData || !followingData || !userInfo) {
-            return res.json({ isBotted: false, botScore: 0, error: "Failed to fetch user data" });
-        }
-
-        const followers = followersData.count || 0;
-        const following = followingData.count || 0;
-        const created = new Date(userInfo.created);
+        const followers = (followersData && followersData.count) || 0;
+        const following = (followingData && followingData.count) || 0;
+        const created = (userInfo && userInfo.created) ? new Date(userInfo.created) : new Date();
         const ageDays = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
 
         let botScore = 0;
