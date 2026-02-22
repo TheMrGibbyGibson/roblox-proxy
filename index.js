@@ -130,4 +130,67 @@ app.get("/gamevisits/:userId", async (req, res) => {
     }
 });
 
+// Bot detection by sampling followers
+app.get("/botcheck/:userId", async (req, res) => {
+    try {
+        const [followersData, followingData, userInfo] = await Promise.all([
+            robloxWithRetry(`friends.roblox.com/v1/users/${req.params.userId}/followers/count`),
+            robloxWithRetry(`friends.roblox.com/v1/users/${req.params.userId}/followings/count`),
+            robloxWithRetry(`users.roblox.com/v1/users/${req.params.userId}`)
+        ]);
+
+        const followers = followersData.count || 0;
+        const following = followingData.count || 0;
+        const created = new Date(userInfo.created);
+        const ageDays = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+
+        let botScore = 0;
+
+        // Basic checks
+        if (followers > 1000 && following < 10) botScore += 2;
+        if (ageDays > 0 && (followers / ageDays) > 1000) botScore += 3;
+        if (ageDays < 90 && followers > 5000) botScore += 2;
+
+        // Sample 20 most recent followers and check if they look like bots
+        if (followers > 500) {
+            try {
+                const followerList = await robloxWithRetry(
+                    `friends.roblox.com/v1/users/${req.params.userId}/followers?limit=20&sortOrder=Desc`
+                );
+
+                let suspiciousCount = 0;
+                const sample = followerList.data || [];
+
+                await Promise.all(sample.map(async (follower) => {
+                    try {
+                        const [theirFollowers, theirFriends] = await Promise.all([
+                            robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/followers/count`),
+                            robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/friends/count`)
+                        ]);
+
+                        const theirFollowerCount = theirFollowers.count || 0;
+                        const theirFriendCount = theirFriends.count || 0;
+
+                        // Bot pattern: very few followers AND very few friends
+                        if (theirFollowerCount <= 5 && theirFriendCount <= 5) {
+                            suspiciousCount++;
+                        }
+                    } catch (_) {}
+                }));
+
+                const botRatio = suspiciousCount / Math.max(sample.length, 1);
+
+                if (botRatio > 0.5) botScore += 4;
+                else if (botRatio > 0.3) botScore += 2;
+
+            } catch (_) {}
+        }
+
+        res.json({ isBotted: botScore >= 3, botScore });
+
+    } catch (e) {
+        res.json({ isBotted: false, botScore: 0, error: e.message });
+    }
+});
+
 app.listen(PORT, () => console.log("Proxy running on port " + PORT));
