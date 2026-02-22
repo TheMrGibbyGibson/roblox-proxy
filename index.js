@@ -152,7 +152,7 @@ app.get("/botcheck/:userId", async (req, res) => {
         if (ageDays < 90 && followers > 5000) botScore += 2;
 
         // Sample 20 most recent followers and check if they look like bots
-        if (followers > 500) {
+        if (followers > 100) {  // lowered from 500
             try {
                 const followerList = await robloxWithRetry(
                     `friends.roblox.com/v1/users/${req.params.userId}/followers?limit=20&sortOrder=Desc`
@@ -171,8 +171,8 @@ app.get("/botcheck/:userId", async (req, res) => {
                         const theirFollowerCount = theirFollowers.count || 0;
                         const theirFriendCount = theirFriends.count || 0;
 
-                        // Bot pattern: very few followers AND very few friends
-                        if (theirFollowerCount <= 5 && theirFriendCount <= 5) {
+                        // Loosened thresholds
+                        if (theirFollowerCount <= 20 && theirFriendCount <= 10) {
                             suspiciousCount++;
                         }
                     } catch (_) {}
@@ -180,13 +180,13 @@ app.get("/botcheck/:userId", async (req, res) => {
 
                 const botRatio = suspiciousCount / Math.max(sample.length, 1);
 
-                if (botRatio > 0.5) botScore += 4;
-                else if (botRatio > 0.3) botScore += 2;
+                if (botRatio > 0.3) botScore += 5;       // lowered from 0.5
+                else if (botRatio > 0.15) botScore += 3; // lowered from 0.3
 
             } catch (_) {}
         }
 
-        res.json({ isBotted: botScore >= 3, botScore });
+        res.json({ isBotted: botScore >= 2, botScore }); // lowered from 3
 
     } catch (e) {
         res.json({ isBotted: false, botScore: 0, error: e.message });
