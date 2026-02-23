@@ -149,9 +149,7 @@ app.get("/botcheck/:userId", async (req, res) => {
         if (followers > 1000 && following < 10) botScore += 2;
         if (ageDays > 0 && (followers / ageDays) > 1000) botScore += 3;
         if (ageDays < 90 && followers > 5000) botScore += 2;
-        if (followers > 50 && following === 0) botScore += 3;
         if (followers > 50 && following < 5 && ageDays > 180) botScore += 2;
-        if (followers > 100 && following === 0 && ageDays > 365) botScore += 3;
 
 res.json({ isBotted: botScore >= 2, botScore });
 
