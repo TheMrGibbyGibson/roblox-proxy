@@ -150,38 +150,40 @@ app.get("/botcheck/:userId", async (req, res) => {
         if (ageDays > 0 && (followers / ageDays) > 1000) botScore += 3;
         if (ageDays < 90 && followers > 5000) botScore += 2;
 
-        if (followers > 100) {
+        if (followers > 50) {  // lowered from 100
+    try {
+        const followerList = await robloxWithRetry(
+            `friends.roblox.com/v1/users/${req.params.userId}/followers?limit=20&sortOrder=Desc`
+        );
+
+        let suspiciousCount = 0;
+        const sample = (followerList && followerList.data) || [];
+
+        await Promise.all(sample.map(async (follower) => {
             try {
-                const followerList = await robloxWithRetry(
-                    `friends.roblox.com/v1/users/${req.params.userId}/followers?limit=20&sortOrder=Desc`
-                );
+                const [theirFollowers, theirFriends] = await Promise.all([
+                    robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/followers/count`),
+                    robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/friends/count`)
+                ]);
 
-                let suspiciousCount = 0;
-                const sample = (followerList && followerList.data) || [];
+                const theirFollowerCount = (theirFollowers && theirFollowers.count) || 0;
+                const theirFriendCount = (theirFriends && theirFriends.count) || 0;
 
-                await Promise.all(sample.map(async (follower) => {
-                    try {
-                        const [theirFollowers, theirFriends] = await Promise.all([
-                            robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/followers/count`),
-                            robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/friends/count`)
-                        ]);
-
-                        const theirFollowerCount = (theirFollowers && theirFollowers.count) || 0;
-                        const theirFriendCount = (theirFriends && theirFriends.count) || 0;
-
-                        if (theirFollowerCount <= 20 && theirFriendCount <= 10) {
-                            suspiciousCount++;
-                        }
-                    } catch (_) {}
-                }));
-
-                const botRatio = suspiciousCount / Math.max(sample.length, 1);
-
-                if (botRatio > 0.3) botScore += 5;
-                else if (botRatio > 0.15) botScore += 3;
-
+                if (theirFollowerCount <= 20 && theirFriendCount <= 10) {
+                    suspiciousCount++;
+                }
             } catch (_) {}
-        }
+        }));
+
+        const botRatio = suspiciousCount / Math.max(sample.length, 1);
+
+        // Smaller accounts need lower thresholds since basic checks won't catch them
+        if (botRatio > 0.5) botScore += 6;
+        else if (botRatio > 0.3) botScore += 4;
+        else if (botRatio > 0.15) botScore += 2;
+
+    } catch (_) {}
+}
 
         res.json({ isBotted: botScore >= 2, botScore });
 
