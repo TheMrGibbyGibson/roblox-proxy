@@ -174,7 +174,7 @@ app.get("/botcheck/:userId", async (req, res) => {
                 if (theirFollowerCount <= 20 && theirFriendCount <= 10) {
                     suspiciousCount++;
                 }
-            } catch (_) {}
+            } catch (_) {}  // per-follower errors silently ignored
         }));
 
         const botRatio = suspiciousCount / Math.max(sample.length, 1);
@@ -183,10 +183,11 @@ app.get("/botcheck/:userId", async (req, res) => {
         else if (botRatio > 0.3) botScore += 4;
         else if (botRatio > 0.15) botScore += 2;
 
-        // Temporary debug
         return res.json({ isBotted: botScore >= 2, botScore, followers, following, ageDays: Math.floor(ageDays), sampleSize: sample.length, checkedCount, suspiciousCount, botRatio });
 
-    } catch (_) {}
+    } catch (samplingError) {
+        return res.json({ isBotted: false, botScore, followers, following, ageDays: Math.floor(ageDays), samplingError: samplingError.message });
+    }
 }
 
 res.json({ isBotted: botScore >= 2, botScore, followers, following, ageDays: Math.floor(ageDays) });
