@@ -133,11 +133,11 @@ app.get("/gamevisits/:userId", async (req, res) => {
 // Bot detection
 app.get("/botcheck/:userId", async (req, res) => {
     try {
-        const [followersData, followingData, userInfo] = await Promise.all([
-            robloxWithRetry(`friends.roblox.com/v1/users/${req.params.userId}/followers/count`),
-            robloxWithRetry(`friends.roblox.com/v1/users/${req.params.userId}/followings/count`),
-            robloxWithRetry(`users.roblox.com/v1/users/${req.params.userId}`)
-        ]);
+        const followersData = await robloxWithRetry(`friends.roblox.com/v1/users/${req.params.userId}/followers/count`);
+        await new Promise(r => setTimeout(r, 500));
+        const followingData = await robloxWithRetry(`friends.roblox.com/v1/users/${req.params.userId}/followings/count`);
+        await new Promise(r => setTimeout(r, 500));
+        const userInfo = await robloxWithRetry(`users.roblox.com/v1/users/${req.params.userId}`);
 
         const followers = (followersData && followersData.count) || 0;
         const following = (followingData && followingData.count) || 0;
@@ -151,7 +151,6 @@ app.get("/botcheck/:userId", async (req, res) => {
         if (ageDays < 90 && followers > 5000) botScore += 2;
         if (followers > 50 && following < 5 && ageDays > 180) botScore += 2;
 
-        // Sample followers with auth cookie
         if (followers > 50 && process.env.ROBLOX_COOKIE) {
             try {
                 const followerRes = await fetch(
@@ -164,17 +163,17 @@ app.get("/botcheck/:userId", async (req, res) => {
                 let totalFollowing = 0;
                 let checkedCount = 0;
 
-                await Promise.all(sample.map(async (follower) => {
+                for (const follower of sample) {
                     try {
+                        await new Promise(r => setTimeout(r, 200));
                         const data = await robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/followings/count`);
                         totalFollowing += (data && data.count) || 0;
                         checkedCount++;
                     } catch (_) {}
-                }));
+                }
 
                 if (checkedCount > 0) {
                     const avgFollowing = totalFollowing / checkedCount;
-                    // High average following = bots (bots follow lots of people)
                     if (avgFollowing > 200) botScore += 5;
                     else if (avgFollowing > 100) botScore += 3;
                 }
