@@ -155,7 +155,7 @@ app.get("/botcheck/:userId", async (req, res) => {
     try {
         const followerRes = await fetch(
             `https://friends.roblox.com/v1/users/${req.params.userId}/followers?limit=20&sortOrder=Asc`,
-            { headers: { "Cookie": `.ROBLOSECURITY=${process.env.ROBLOX_COOKIE}` } }
+            { headers: { "Cookie": `.ROBLOSECURITY=${process.env.ROBLOX_COOKIE.replace(/^_\|WARNING[^|]*\|_/, '')}`, "Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } }
         );
         const followerList = await followerRes.json();
         const sample = (followerList && followerList.data) || [];
