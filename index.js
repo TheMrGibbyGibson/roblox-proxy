@@ -185,7 +185,7 @@ app.get("/botcheck/:userId", async (req, res) => {
     } catch (_) {}
 }
 
-        res.json({ isBotted: botScore >= 2, botScore });
+        res.json({ isBotted: botScore >= 2, botScore, followers, following, ageDays: Math.floor(ageDays) });
 
     } catch (e) {
         res.json({ isBotted: false, botScore: 0, error: e.message });
