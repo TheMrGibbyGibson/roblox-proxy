@@ -152,33 +152,39 @@ app.get("/botcheck/:userId", async (req, res) => {
         if (followers > 50 && following < 5 && ageDays > 180) botScore += 2;
 
         if (followers > 50 && process.env.ROBLOX_COOKIE) {
+    try {
+        const followerRes = await fetch(
+            `https://friends.roblox.com/v1/users/${req.params.userId}/followers?limit=100&sortOrder=Asc`,
+            { headers: { "Cookie": `.ROBLOSECURITY=${process.env.ROBLOX_COOKIE}` } }
+        );
+        const followerList = await followerRes.json();
+        const sample = (followerList && followerList.data) || [];
+
+        let totalFollowing = 0;
+        let checkedCount = 0;
+
+        for (const follower of sample) {
             try {
-                const followerRes = await fetch(
-                    `https://friends.roblox.com/v1/users/${req.params.userId}/followers?limit=100&sortOrder=Asc`,
-                    { headers: { "Cookie": `.ROBLOSECURITY=${process.env.ROBLOX_COOKIE}` } }
-                );
-                const followerList = await followerRes.json();
-                const sample = (followerList && followerList.data) || [];
-
-                let totalFollowing = 0;
-                let checkedCount = 0;
-
-                for (const follower of sample) {
-                    try {
-                        await new Promise(r => setTimeout(r, 200));
-                        const data = await robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/followings/count`);
-                        totalFollowing += (data && data.count) || 0;
-                        checkedCount++;
-                    } catch (_) {}
-                }
-
-                if (checkedCount > 0) {
-                    const avgFollowing = totalFollowing / checkedCount;
-                    if (avgFollowing > 200) botScore += 5;
-                    else if (avgFollowing > 100) botScore += 3;
-                }
+                await new Promise(r => setTimeout(r, 200));
+                const data = await robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/followings/count`);
+                totalFollowing += (data && data.count) || 0;
+                checkedCount++;
             } catch (_) {}
         }
+
+        if (checkedCount > 0) {
+            const avgFollowing = totalFollowing / checkedCount;
+            if (avgFollowing > 200) botScore += 5;
+            else if (avgFollowing > 100) botScore += 3;
+        }
+
+        // Temporary debug
+        return res.json({ isBotted: botScore >= 5, botScore, followers, following, ageDays: Math.floor(ageDays), cookieWorking: !!process.env.ROBLOX_COOKIE, followerListStatus: followerRes.status, sampleSize: sample.length, checkedCount, avgFollowing: checkedCount > 0 ? totalFollowing / checkedCount : 0 });
+
+    } catch (samplingError) {
+        return res.json({ isBotted: false, botScore, followers, samplingError: samplingError.message });
+    }
+}
 
         res.json({ isBotted: botScore >= 5, botScore, followers, following, ageDays: Math.floor(ageDays) });
 
