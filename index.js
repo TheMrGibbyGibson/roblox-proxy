@@ -151,7 +151,37 @@ app.get("/botcheck/:userId", async (req, res) => {
         if (ageDays < 90 && followers > 5000) botScore += 2;
         if (followers > 50 && following < 5 && ageDays > 180) botScore += 2;
 
-res.json({ isBotted: botScore >= 2, botScore });
+        // Sample followers with auth cookie
+        if (followers > 50 && process.env.ROBLOX_COOKIE) {
+            try {
+                const followerRes = await fetch(
+                    `https://friends.roblox.com/v1/users/${req.params.userId}/followers?limit=100&sortOrder=Asc`,
+                    { headers: { "Cookie": `.ROBLOSECURITY=${process.env.ROBLOX_COOKIE}` } }
+                );
+                const followerList = await followerRes.json();
+                const sample = (followerList && followerList.data) || [];
+
+                let totalFollowing = 0;
+                let checkedCount = 0;
+
+                await Promise.all(sample.map(async (follower) => {
+                    try {
+                        const data = await robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/followings/count`);
+                        totalFollowing += (data && data.count) || 0;
+                        checkedCount++;
+                    } catch (_) {}
+                }));
+
+                if (checkedCount > 0) {
+                    const avgFollowing = totalFollowing / checkedCount;
+                    // High average following = bots (bots follow lots of people)
+                    if (avgFollowing > 200) botScore += 5;
+                    else if (avgFollowing > 100) botScore += 3;
+                }
+            } catch (_) {}
+        }
+
+        res.json({ isBotted: botScore >= 2, botScore });
 
     } catch (e) {
         res.json({ isBotted: false, botScore: 0, error: e.message });
