@@ -150,13 +150,14 @@ app.get("/botcheck/:userId", async (req, res) => {
         if (ageDays > 0 && (followers / ageDays) > 1000) botScore += 3;
         if (ageDays < 90 && followers > 5000) botScore += 2;
 
-        if (followers > 50) {  // lowered from 100
+       if (followers > 50) {
     try {
         const followerList = await robloxWithRetry(
             `friends.roblox.com/v1/users/${req.params.userId}/followers?limit=20&sortOrder=Desc`
         );
 
         let suspiciousCount = 0;
+        let checkedCount = 0;
         const sample = (followerList && followerList.data) || [];
 
         await Promise.all(sample.map(async (follower) => {
@@ -168,6 +169,7 @@ app.get("/botcheck/:userId", async (req, res) => {
 
                 const theirFollowerCount = (theirFollowers && theirFollowers.count) || 0;
                 const theirFriendCount = (theirFriends && theirFriends.count) || 0;
+                checkedCount++;
 
                 if (theirFollowerCount <= 20 && theirFriendCount <= 10) {
                     suspiciousCount++;
@@ -177,15 +179,17 @@ app.get("/botcheck/:userId", async (req, res) => {
 
         const botRatio = suspiciousCount / Math.max(sample.length, 1);
 
-        // Smaller accounts need lower thresholds since basic checks won't catch them
         if (botRatio > 0.5) botScore += 6;
         else if (botRatio > 0.3) botScore += 4;
         else if (botRatio > 0.15) botScore += 2;
 
+        // Temporary debug
+        return res.json({ isBotted: botScore >= 2, botScore, followers, following, ageDays: Math.floor(ageDays), sampleSize: sample.length, checkedCount, suspiciousCount, botRatio });
+
     } catch (_) {}
 }
 
-        res.json({ isBotted: botScore >= 2, botScore, followers, following, ageDays: Math.floor(ageDays) });
+res.json({ isBotted: botScore >= 2, botScore, followers, following, ageDays: Math.floor(ageDays) });
 
     } catch (e) {
         res.json({ isBotted: false, botScore: 0, error: e.message });
