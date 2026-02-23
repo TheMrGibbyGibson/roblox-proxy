@@ -154,7 +154,7 @@ app.get("/botcheck/:userId", async (req, res) => {
         if (followers > 50 && process.env.ROBLOX_COOKIE) {
     try {
         const followerRes = await fetch(
-            `https://friends.roblox.com/v1/users/${req.params.userId}/followers?limit=100&sortOrder=Asc`,
+            `https://friends.roblox.com/v1/users/${req.params.userId}/followers?limit=20&sortOrder=Asc`,
             { headers: { "Cookie": `.ROBLOSECURITY=${process.env.ROBLOX_COOKIE}` } }
         );
         const followerList = await followerRes.json();
@@ -165,7 +165,7 @@ app.get("/botcheck/:userId", async (req, res) => {
 
         for (const follower of sample) {
             try {
-                await new Promise(r => setTimeout(r, 200));
+                await new Promise(r => setTimeout(r, 100));
                 const data = await robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/followings/count`);
                 totalFollowing += (data && data.count) || 0;
                 checkedCount++;
@@ -178,8 +178,7 @@ app.get("/botcheck/:userId", async (req, res) => {
             else if (avgFollowing > 100) botScore += 3;
         }
 
-        // Temporary debug
-        return res.json({ isBotted: botScore >= 5, botScore, followers, following, ageDays: Math.floor(ageDays), cookieWorking: !!process.env.ROBLOX_COOKIE, followerListStatus: followerRes.status, sampleSize: sample.length, checkedCount, avgFollowing: checkedCount > 0 ? totalFollowing / checkedCount : 0 });
+        return res.json({ isBotted: botScore >= 5, botScore, followers, following, ageDays: Math.floor(ageDays), followerListStatus: followerRes.status, sampleSize: sample.length, checkedCount, avgFollowing: checkedCount > 0 ? totalFollowing / checkedCount : 0 });
 
     } catch (samplingError) {
         return res.json({ isBotted: false, botScore, followers, samplingError: samplingError.message });
