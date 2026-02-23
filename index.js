@@ -130,7 +130,7 @@ app.get("/gamevisits/:userId", async (req, res) => {
     }
 });
 
-// Bot detection by sampling followers
+// Bot detection
 app.get("/botcheck/:userId", async (req, res) => {
     try {
         const [followersData, followingData, userInfo] = await Promise.all([
@@ -149,48 +149,11 @@ app.get("/botcheck/:userId", async (req, res) => {
         if (followers > 1000 && following < 10) botScore += 2;
         if (ageDays > 0 && (followers / ageDays) > 1000) botScore += 3;
         if (ageDays < 90 && followers > 5000) botScore += 2;
+        if (followers > 50 && following === 0) botScore += 3;
+        if (followers > 50 && following < 5 && ageDays > 180) botScore += 2;
+        if (followers > 100 && following === 0 && ageDays > 365) botScore += 3;
 
-       if (followers > 50) {
-    try {
-        const followerList = await robloxWithRetry(
-            `friends.roblox.com/v1/users/${req.params.userId}/followers?limit=20&sortOrder=Desc`
-        );
-
-        let suspiciousCount = 0;
-        let checkedCount = 0;
-        const sample = (followerList && followerList.data) || [];
-
-        await Promise.all(sample.map(async (follower) => {
-            try {
-                const [theirFollowers, theirFriends] = await Promise.all([
-                    robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/followers/count`),
-                    robloxWithRetry(`friends.roblox.com/v1/users/${follower.id}/friends/count`)
-                ]);
-
-                const theirFollowerCount = (theirFollowers && theirFollowers.count) || 0;
-                const theirFriendCount = (theirFriends && theirFriends.count) || 0;
-                checkedCount++;
-
-                if (theirFollowerCount <= 20 && theirFriendCount <= 10) {
-                    suspiciousCount++;
-                }
-            } catch (_) {}  // per-follower errors silently ignored
-        }));
-
-        const botRatio = suspiciousCount / Math.max(sample.length, 1);
-
-        if (botRatio > 0.5) botScore += 6;
-        else if (botRatio > 0.3) botScore += 4;
-        else if (botRatio > 0.15) botScore += 2;
-
-        return res.json({ isBotted: botScore >= 2, botScore, followers, following, ageDays: Math.floor(ageDays), sampleSize: sample.length, checkedCount, suspiciousCount, botRatio });
-
-    } catch (samplingError) {
-        return res.json({ isBotted: false, botScore, followers, following, ageDays: Math.floor(ageDays), samplingError: samplingError.message });
-    }
-}
-
-res.json({ isBotted: botScore >= 2, botScore, followers, following, ageDays: Math.floor(ageDays) });
+res.json({ isBotted: botScore >= 2, botScore });
 
     } catch (e) {
         res.json({ isBotted: false, botScore: 0, error: e.message });
